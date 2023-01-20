@@ -1,0 +1,64 @@
+## IMPL DA API AUTH USER
+- Criar projeto Spring pelo initialzr, importando spring web, jpa, lombok e postgres
+- Configurar application.yaml com as configurações de banco e hibernate
+- Criar pacote models onde irão ser salvos os modelos(entidades) do projeto:
+    - Neste caso, primeimo model é chamado UserModel
+    - Anotar entidate como @Entity para informar que a classe será gerenciada pelo Spring e @Table para a geração deste objeto no banco de dados.
+    - Utilizamos UUID pois é um tipo de ID único e utlizado universalment. A chance de geração de um mesmo UUID é minimamente irrelevante.
+    - Utilizamos LocalDateTime para salvar a data de criacao e atualizacao do objeto no banco.
+    - Para id utlizamos a anotação @id, @generatedValue(strategy=Generation.Type.AUTO)
+    - Utlizar anotações convenientes para o resto dos atributos.
+    - Utilizamos @Data(do lombok) como anotação da classe para nao ser preciso criar os metodos getters, setters, construtores, toString...
+- Criar pacote respository e UserRepository para o model criado
+- Criar pacote services e interface UserService para a criacao de de metodos q serao utlizados para a criação do crud do modelo criado
+- Criar pacote serviceImpl dentro de service e a classe UserServiceImpl para a implementacao dos metodos da interface Service
+- Criar pacote controllers e UserController
+    - Utilizamos @RestController para o spring gerenciar como um Bean
+    - Utilizamos @CrossOrigin(origins="*") a nivel de classe, para esse controller ser acessado de qualquer lugar
+    - Utilizamos @RequestMapping("/users") para definir por qual URI este controller será acessado
+    - Injetamos o UserSerice por @Autoriwed.
+    - Criamos metodos getAll, getOne e deleteOne e implementamos seus respectivos metodos no UserService, UserServiceImpl e UserRepository(se necessario).
+    - Sempre retornando um ResponseEntity, utlizando http status e body especifico para cada tipo de retorno
+- Criar AuthenticationController q sera responsavel por cadastrar, editar, autenticar e autorizar cada usuario:
+    - Utilizar @RestController @CrossOrigin(origins="*") e @RequestMapping("/auth")
+    - Criar UserDTO para receber os dados de entrada do cliente, para assim verificar os campos e só depois de estar tudo ok transformar este DTO em objeto user para o salvamento do mesmo em banco.
+    - Anotar dto como @Data e @JsonInclude(JsonInclude.Include.NON_NULL)
+    - Criar metódos registerUser no AuthController e medotos especificos no UserSerive e UserRepository
+- Dentro da classe UserDTO:
+     -  Criar interface UserView com as diferentes visões de alterações do usuário(sejam elas um cadastro, edicao de dados, edicao de password,etc)
+     -  Utilizar @JsonView em cada atributo especificando qual a visão(UserView) 
+     - Anotar com @JsonView nos metodos dos controllers q irão receber o objeto User do client para cadastro e update do objeto.
+- Utilizar a biblioteca SpringValidation(no pom) para validar campos de UserDTO
+- Utilizamos uma anotacao customizada @UsernameConstraint para efetuar uma validação que podemos customizar de acordo com o que o sistema irá pedir, para isso:
+    - Anotar username como @UsernameConstrain e passar o group de visão (UserView)
+    - Criar pacote validation
+    - Dentro do pacote validation, criar a @interface UsernameConstraint com as determinadas anotações de classe
+    - Definir atributos default: message, groups e payload
+    - Criar classe UsernameConstraintImpl, que irá implementar ConstraintValidator< UsernameConstraint, String >
+    - Em UsernameConstraintImpl, implementar metodos default e desenvolver a regra de negocio no método isValid, retornando false se nao for validado.
+- Implementação de retorno com paginação utlizando Spring Data:
+    - Em UserController mudar retorno para o time ResponseEntity< Page < UserModel > >
+    - Receber um Pageable (da biblioteca .data.domain) como parametro
+    - Anotar o Pageable como @PageableDefault e passar as definições da paginação entre parenteses
+    - Criar nova funcao findAll em UserService, só que agora recebendo um Pageable como parametro
+    - Implementar funcao findAll em UserServiceImpl, utlizando a funcao nativa de JPA que irá realizar um findAll porém recebendo um Pageable como parametro
+    - Dentro de getAllUsers em UserController, inicializar um objeto Page que irá receber o retorno desse novo findAll de UserService
+    - Dentro do body, retornar o objeto Page
+    - Obs: Para mudar os paramentros da paginação, basta que sejam modificados via Params na própria requisição
+- Implementação de filtros avancados com specification:
+    - Importar biblioteca specification-arg-resolver do mvnrepository.com para o pom.xml. Essa biblioteca converte os dados dos parametros para tipos basicos Java(Enums, Double, Date, etc...)
+    - Criar uma classe de configuração ResolverConfig e anota-la como @Configuration. A classe extende WebMvcConfigurationSupport
+    - Dentro da classe ResolverConfig , utilizamos o metodo addArgumentsResolvers que recebe como parametro uma Lista de HandlerMethodArgumentResolver.
+    - Dentro desse metodo, adicionamos os Specifications dentro da lista de argumentResolvers. Adicionamos um new SpecificationArgumentResolver() e um new PageableHandlerMethodArgumentResolver. Feito isso, damos um super.addArgumentResolvers passando argumentResolvers como argumento. E assim está feita a configuração do WebMvc e do ResolverConfig.
+    - Criar classe para definitir filtros de specifications. Neste caso o nome sera SpecificationTemplate.
+    - Dentro da classe SpecificationTemplate definimos uma interface que se chamará UserSpec e extenderá Specification do data.jpa e passamos < UserModel > como argumento.
+    - Anotamos a interface com @Spec para especificar o tipo de filtro que usaremos. Ex: @Spec(path = "userType", spec = Equal.class). Podemos utilizar varios @Spec , para isso basta anotarmos o grupo de @Spec com @And.
+    - Feito isso, voltamos ao UserController e passamos SpecificationTemplate.userspec como parametro do end point getAllUsers.
+    - Modificar o findAll de UserService e UserServiceImpl para receber como parametro um Specitification< UserModel >
+    - Em UserRepository apenas iremos extender, além do jparepository, a biblioteca JpaSpecificationExecutor < UserModel >.
+- Adicionando Hateos na api:
+    - Importar o Spring Hateos no pom.xml
+    - Na classe UserModel extender a classe RepresentationModel < UserModel > para criar os links para esse recurso.
+    - Em getAllUsers verificar se a page de UserModel esta vazia, se nao estiver, utilizar um for para passar pada cada um UserModel.
+    - Em casa objeto UserModel utilizar _user.add(linkTo(methodOn(UserController.class).getOneUser(user.getUserId())).withSelfRel());_
+    
