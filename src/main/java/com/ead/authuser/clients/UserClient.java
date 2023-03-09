@@ -14,6 +14,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.ead.authuser.dtos.CourseDto;
 import com.ead.authuser.dtos.ResponsePageDto;
+import com.ead.authuser.services.UtilsService;
 
 @Component
 public class UserClient {
@@ -21,24 +22,28 @@ public class UserClient {
     @Autowired
     RestTemplate restTemplate;
 
-    String REQUEST_URI = "http://localhost:8082";
+    @Autowired
+    UtilsService utilsService;
+
+    // String REQUEST_URI = "http://localhost:8082";
 
     public Page<CourseDto> getAllCoursesByUser(UUID userId, Pageable pageable) {
-        List<CourseDto> searchResult = null;
-        String url = REQUEST_URI + "/courses?userId=" + userId + "&page=" + pageable.getPageNumber() + "&size="
-                + pageable.getPageSize() + "&sort=" +
-                pageable.getSort().toString().replaceAll(": ", ",");
+        // List<CourseDto> searchResult = null; //APENAS PARA LOG
+        ResponseEntity<ResponsePageDto<CourseDto>> result = null;
+        String url = utilsService.createUrl(userId, pageable);
 
         try {
             ParameterizedTypeReference<ResponsePageDto<CourseDto>> responseType = new ParameterizedTypeReference<ResponsePageDto<CourseDto>>() {
             };
-            ResponseEntity<ResponsePageDto<CourseDto>> result = restTemplate.exchange(url, HttpMethod.GET, null,
+            result = restTemplate.exchange(url, HttpMethod.GET, null,
                     responseType);
-            searchResult = result.getBody().getContent();
+            // searchResult = result.getBody().getContent();
         } catch (Exception e) {
             // TODO: handle exception
+            System.out.println("ERROR: " + e.getMessage());
         }
 
+        return result.getBody();
     }
 
 }
